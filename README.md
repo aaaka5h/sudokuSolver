@@ -1,4 +1,4 @@
-# sudokuSolver
+# About
 Solves sudoku puzzles using the backtracking algorithm. 
 
 # Currently working on:
