@@ -1,14 +1,19 @@
 import sudokuSolver
-from sudokuSolver import board
+from sudokuSolver import testBoard
 
 
 def main(self):
-    sudokuSolver.solve(self)
     sudokuSolver.print_board(self)
+    print("\nSolving...\n")
+    if not sudokuSolver.solve(self):
+        print("This puzzle has no solution.")
+    else:
+        sudokuSolver.solve(self)
+        sudokuSolver.print_board(self)
 
 
 if __name__ == "__main__":
-    print("Solving...\n")
-    main(board)
     print("\n")
-    print("Solved!")
+    main(sudokuSolver.gen_rand_board())
+    print("\nSolved!")
+
