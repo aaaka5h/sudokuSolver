@@ -1,7 +1,7 @@
-# GUI for playing and solving sudokus
+# GUI for playing and solving Sudoku puzzles
 import pygame
 
-from sudokuSolver import gen_rand_board, solve, print_board
+from sudokuSolver import gen_rand_board, solve, print_board, is_valid, search_empty
 from copy import deepcopy
 import time
 
@@ -10,17 +10,24 @@ pygame.font.init()
 # Window
 WIN_WIDTH = 540
 WIN_HEIGHT = 600
+WIN = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
 
 # Board
 BOARD_WIDTH = WIN_WIDTH
 BOARD_HEIGHT = WIN_HEIGHT
 
 # Squares
-CUBE_WIDTH = 540
-CUBE_HEIGHT = 540
+CUBE_WIDTH = CUBE_HEIGHT = 540
+
+# Solve Button
+SOLVE_X = BOARD_WIDTH/45
+SOLVE_Y = BOARD_HEIGHT - CUBE_WIDTH / 11
+SOLVE_WIDTH = 140
+SOLVE_HEIGHT = 40
 
 # Misc
 BLACK = (0, 0, 0)
+LIGHT_GRAY = (211, 211, 211)
 GRAY = (128, 128, 128)
 WHITE = (255, 255, 255)
 SELECTED_COLOR = GRAY
@@ -50,7 +57,7 @@ class Board:
         gap = self.width / 9
         for i in range(self.rows+1):
             for j in range(self.columns):
-                if i % 3 == 0 and i != 0:
+                if i == 3 or i == 6:
                     r_line_thickness = 4
                 else:
                     r_line_thickness = 1
@@ -60,22 +67,15 @@ class Board:
                     c_line_thickness = 4
                 else:
                     c_line_thickness = 1
-                pygame.draw.line(win, BLACK, (gap * j, 0), (gap * j, BOARD_HEIGHT), c_line_thickness)
+                pygame.draw.line(win, BLACK, (gap * j, 0), (gap * j, BOARD_HEIGHT - gap), c_line_thickness)
 
     def update_model(self):
-        self.model = [[self.squares[i][j].value for i in range(self.columns) for j in range(self.rows)]]
+        self.model = [[self.squares[i][j].value for i in range(self.rows) for j in range(self.columns)]]
 
-    def set_preview(self, val, win):
+    def set_preview(self, val):
         if self.current_square is not None:
             r, c = self.current_square
-            fnt = pygame.font.SysFont(GAME_FONT, GAME_FONT_SIZE)
-
-            gap_size = self.squares[r][c].width / 9
-            x = c * gap_size
-            y = r * gap_size
-
             self.squares[r][c].sketch = val
-
 
     def try_put(self, val):
         c, r = self.current_square  # row and column of selected square
@@ -106,12 +106,45 @@ class Board:
             gap = self.width / 9
             row = width // gap
             col = height // gap
-            print("current square is " + str(int(row)) + ", " + str(int(col)))
+            print("Current square:  " + str(int(row)) + ", " + str(int(col)))
             return int(row), int(col)
         else:
             return False
 
-    # True if there are no 0's (empty squares) on the board
+    def solve_button_clicked(self, mouse_pos):
+        x, y = mouse_pos
+        return SOLVE_X <= x <= SOLVE_X + SOLVE_WIDTH and SOLVE_Y <= y <= SOLVE_Y + SOLVE_HEIGHT
+
+    def solve_board(self, t):
+        for event in pygame.event.get():
+            if event == pygame.QUIT:
+                exit()
+
+        next_empty = search_empty(self.board)
+        if not next_empty:
+            print("Board solved!")
+            print_board(self.board)
+            return True
+
+        r, c = next_empty
+
+        for i in range(1, 10):
+            if is_valid(self.board, i, (r, c)):
+                self.board[r][c] = i
+                self.squares[c][r].value = i
+                self.update_model()
+                draw_game(WIN, self, t)
+                pygame.display.update()
+
+                if self.solve_board(t):
+                    return True
+
+                self.board[r][c] = 0
+                self.squares[c][r].value = 0
+                self.update_model()
+                draw_game(WIN, self, t)
+                pygame.display.update()
+
     def is_complete(self):
         return not any(0 in sublist for sublist in self.board)
 
@@ -150,49 +183,56 @@ class Square:
         self.value = val
 
 
-def draw_game(win, board, time):
+def draw_game(win, board, t):
     win.fill(WHITE)
 
     time_font = pygame.font.SysFont(GAME_FONT, GAME_FONT_SIZE)
-    time_text = time_font.render("Time:" + display_time(time), True, BLACK)
-    win.blit(time_text, (540 - 160, 540))
+    time_text = time_font.render(display_time(t), True, BLACK)
+    win.blit(time_text, (0.81 * BOARD_WIDTH, BOARD_HEIGHT - CUBE_WIDTH / 12))
 
     board.draw_lines(win)
     board.draw_squares(win)
 
 
 def display_time(t):
-    minutes = t // 60  # floor division of time which is in seconds
-    seconds = t % 60  # remainder of floor div
-    hours = t // 3600
+    return time.strftime("%H:%M:%S", time.gmtime(t))
 
-    if hours == 0:
-        display_hours = " "
+
+def create_solve_button(win):
+    x, y = pygame.mouse.get_pos()
+    properties = pygame.font.SysFont(GAME_FONT, GAME_FONT_SIZE)
+    solve_text = properties.render("Solve", True, BLACK)
+
+    if SOLVE_X <= x <= SOLVE_X + SOLVE_WIDTH and SOLVE_Y <= y <= SOLVE_Y + SOLVE_HEIGHT:  # if mouse hovers button
+        button_color = GRAY
     else:
-        display_hours = str(hours) + ": "
-
-    clock = display_hours + str(minutes) + ":" + str(seconds) + ""
-    return clock
+        button_color = LIGHT_GRAY
+    pygame.draw.rect(win, button_color, [SOLVE_X, SOLVE_Y, SOLVE_WIDTH, SOLVE_HEIGHT])
+    win.blit(solve_text, (SOLVE_X + 0.25 * SOLVE_WIDTH, SOLVE_Y + SOLVE_HEIGHT/8))
+    pygame.display.update()
 
 
 def main():
-    win = pygame.display.set_mode((540, 600))
     pygame.display.set_caption("Sudoku")
     game_board = Board()
-    print_board(game_board.board)
-    print_board(game_board.solution)
+    if any(0 in sublist for sublist in game_board.solution):
+        print("Error: Unsolvable board generated. Please rerun program.")
+        exit()
+
     key = None
     run = True  # game over when false
     start = time.time()
 
     while run:
-        current = round(time.time() - start)  # current time in seconds
+        current = round(time.time() - start)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
             if event.type == pygame.MOUSEBUTTONDOWN:
                 mouse_pos = pygame.mouse.get_pos()
+                if game_board.solve_button_clicked(mouse_pos):
+                    game_board.solve_board(current)
                 clicked = game_board.click(mouse_pos)
                 if clicked:
                     game_board.select_square(clicked)
@@ -201,31 +241,22 @@ def main():
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_1:
                     key = 1
-                    #game_board.set_preview(key, win)
                 if event.key == pygame.K_2:
                     key = 2
-                    #game_board.set_preview(key, win)
                 if event.key == pygame.K_3:
                     key = 3
-                    #game_board.set_preview(key, win)
                 if event.key == pygame.K_4:
                     key = 4
-                    #game_board.set_preview(key, win)
                 if event.key == pygame.K_5:
                     key = 5
-                    #game_board.set_preview(key, win)
                 if event.key == pygame.K_6:
                     key = 6
-                    #game_board.set_preview(key, win)
                 if event.key == pygame.K_7:
                     key = 7
-                    #game_board.set_preview(key, win)
                 if event.key == pygame.K_8:
                     key = 8
-                    #game_board.set_preview(key, win)
                 if event.key == pygame.K_9:
                     key = 9
-                    #game_board.set_preview(key, win)
 
                 if event.key == pygame.K_RETURN:
                     if key is not None and 1 <= key <= 9:
@@ -240,9 +271,10 @@ def main():
                             run = False
 
         if game_board.current_square is not None and key is not None:
-            game_board.set_preview(key, win)
+            game_board.set_preview(key)
 
-        draw_game(win, game_board, current)
+        draw_game(WIN, game_board, current)
+        create_solve_button(WIN)
         pygame.display.update()
 
 

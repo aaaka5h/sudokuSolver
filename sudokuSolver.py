@@ -23,13 +23,12 @@ def gen_empty_board():
     return board
 
 
-# Given a difficulty, generate a 10% filled board,
-# WARNING: Can generate unsolvable board!
+# WARNING: If taking too long to load rerun the program
 def gen_rand_board():
     rand_board = gen_empty_board()
     for i in range(9):
         for j in range(9):
-            empty_spot = np.random.choice([0, 1], 1, True, [0.8, 0.2])
+            empty_spot = np.random.choice([0, 1], 1, True, [0.7, 0.3])
             if empty_spot[0] == 0:
                 rand_board[i][j] = 0
             else:
@@ -73,33 +72,12 @@ def is_valid(board, num, pos):
 # False if number present in box, else true
 def b_valid(board, num, pos):
     r, c = pos
-    if r / 3 < 1:
-        if c / 3 < 1:
-            return is_unique(board, num, 0, 3, 0, 3)
-        elif 1 <= c / 3 < 2:
-            return is_unique(board, num, 0, 3, 3, 6)
-        else:
-            return is_unique(board, num, 0, 3, 6, 9)
-    elif 1 <= r / 3 < 2:
-        if c / 3 < 1:
-            return is_unique(board, num, 3, 6, 0, 3)
-        elif 1 <= c / 3 < 2:
-            return is_unique(board, num, 3, 6, 3, 6)
-        else:
-            return is_unique(board, num, 3, 6, 6, 9)
-    else:
-        if c / 3 < 1:
-            return is_unique(board, num, 6, 9, 0, 3)
-        elif 1 <= c / 3 < 2:
-            return is_unique(board, num, 6, 9, 3, 6)
-        else:
-            return is_unique(board, num, 6, 9, 6, 9)
+    box_x = c // 3
+    box_y = r // 3  # floor division to get to top corner of box
 
-
-def is_unique(board, num, r_start, r_end, c_start, c_end):
-    for i in range(r_start, r_end):
-        for j in range(c_start, c_end):
-            if board[i][j] == num:
+    for i in range(box_y * 3, box_y * 3 + 3):
+        for j in range(box_x * 3, box_x * 3 + 3):
+            if board[i][j] == num and (i, j) != pos:
                 return False
     return True
 
@@ -120,8 +98,8 @@ def rc_valid(board, num, pos):
 
 # give coordinates of an empty spot on the given board
 def search_empty(board):
-    for i in range(len(board)):
-        for j in range(len(board)):
+    for i in range(9):
+        for j in range(9):
             if board[i][j] == 0:  # if spot is empty
                 return i, j
     return False
