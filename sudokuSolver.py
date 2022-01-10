@@ -28,7 +28,7 @@ def gen_rand_board():
     rand_board = gen_empty_board()
     for i in range(9):
         for j in range(9):
-            empty_spot = np.random.choice([0, 1], 1, True, [0.7, 0.3])
+            empty_spot = np.random.choice([0, 1], 1, True, [0.75, 0.25])
             if empty_spot[0] == 0:
                 rand_board[i][j] = 0
             else:

@@ -1,11 +1,16 @@
 # GUI for playing and solving Sudoku puzzles
 import pygame
 
-from sudokuSolver import gen_rand_board, solve, print_board, is_valid, search_empty
+from sudokuSolver import gen_rand_board, solve, is_valid, search_empty
 from copy import deepcopy
 import time
 
 pygame.font.init()
+
+# Information
+info = "How to play:\nFill the board such that each row, column, and 3x3 box contain each number from 1 - 9 exactly " \
+       "once.\nOptions:\n\t- 'h': get hint\n\t- 's': quick solve\n\t- DEL: clear square\n\t- SOLVE: solve the puzzle "\
+        "via backtracking"
 
 # Window
 WIN_WIDTH = 540
@@ -19,9 +24,9 @@ BOARD_HEIGHT = WIN_HEIGHT
 # Squares
 CUBE_WIDTH = CUBE_HEIGHT = 540
 
-# Solve Button
-SOLVE_X = BOARD_WIDTH/45
-SOLVE_Y = BOARD_HEIGHT - CUBE_WIDTH / 11
+# Solve button
+SOLVE_X = BOARD_WIDTH / 45
+SOLVE_Y = HINT_Y = BOARD_HEIGHT - CUBE_WIDTH / 11
 SOLVE_WIDTH = 140
 SOLVE_HEIGHT = 40
 
@@ -106,10 +111,18 @@ class Board:
             gap = self.width / 9
             row = width // gap
             col = height // gap
-            print("Current square:  " + str(int(row)) + ", " + str(int(col)))
             return int(row), int(col)
         else:
             return False
+
+    def reveal_square(self):
+        r, c = self.current_square
+        sol = self.solution[r][c]
+        if self.current_square is not None:
+            self.board[c][r] = sol
+            self.squares[r][c].value = sol
+            self.update_model()
+            return True
 
     def solve_button_clicked(self, mouse_pos):
         x, y = mouse_pos
@@ -123,7 +136,6 @@ class Board:
         next_empty = search_empty(self.board)
         if not next_empty:
             print("Board solved!")
-            print_board(self.board)
             return True
 
         r, c = next_empty
@@ -144,6 +156,13 @@ class Board:
                 self.update_model()
                 draw_game(WIN, self, t)
                 pygame.display.update()
+
+    def quick_solve(self):
+        for i in range(9):
+            for j in range(9):
+                self.board[i][j] = self.solution[i][j]
+                self.squares[j][i].value = self.solution[i][j]
+        self.update_model()
 
     def is_complete(self):
         return not any(0 in sublist for sublist in self.board)
@@ -198,7 +217,7 @@ def display_time(t):
     return time.strftime("%H:%M:%S", time.gmtime(t))
 
 
-def create_solve_button(win):
+def create_solve_button():
     x, y = pygame.mouse.get_pos()
     properties = pygame.font.SysFont(GAME_FONT, GAME_FONT_SIZE)
     solve_text = properties.render("Solve", True, BLACK)
@@ -207,8 +226,8 @@ def create_solve_button(win):
         button_color = GRAY
     else:
         button_color = LIGHT_GRAY
-    pygame.draw.rect(win, button_color, [SOLVE_X, SOLVE_Y, SOLVE_WIDTH, SOLVE_HEIGHT])
-    win.blit(solve_text, (SOLVE_X + 0.25 * SOLVE_WIDTH, SOLVE_Y + SOLVE_HEIGHT/8))
+    pygame.draw.rect(WIN, button_color, [SOLVE_X, SOLVE_Y, SOLVE_WIDTH, SOLVE_HEIGHT])
+    WIN.blit(solve_text, (SOLVE_X + 0.25 * SOLVE_WIDTH, SOLVE_Y + SOLVE_HEIGHT / 8))
     pygame.display.update()
 
 
@@ -218,10 +237,12 @@ def main():
     if any(0 in sublist for sublist in game_board.solution):
         print("Error: Unsolvable board generated. Please rerun program.")
         exit()
+    print(info)
 
     key = None
     run = True  # game over when false
     start = time.time()
+    hints = 0
 
     while run:
         current = round(time.time() - start)
@@ -266,15 +287,26 @@ def main():
                             print("Wrong!")
                         key = None
 
-                        if game_board.is_complete():
-                            print("Puzzle completed! Time: " + display_time(current))
-                            run = False
+                    if game_board.is_complete():
+                        print("Puzzle completed! Time: " + display_time(current) + "\nHints used: " + str(hints))
+                        run = False
+
+                if event.key == pygame.K_BACKSPACE:
+                    game_board.set_preview(0)
+
+                if event.key == pygame.K_h:
+                    if game_board.reveal_square():
+                        hints += 1
+                        print("Hint used!")
+
+                if event.key == pygame.K_s:
+                    game_board.quick_solve()
 
         if game_board.current_square is not None and key is not None:
             game_board.set_preview(key)
 
         draw_game(WIN, game_board, current)
-        create_solve_button(WIN)
+        create_solve_button()
         pygame.display.update()
 
 
